@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>ค้นหาข้อมูล</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background-color: #e0f7fa;
+    }
+    #loginSection, #mainSection {
+      max-width: 600px;
+      margin: auto;
+    }
+    #loginSection {
+      margin-top: 100px;
+      text-align: center;
+    }
+    #loginSection input {
+      padding: 10px;
+      margin: 5px;
+      width: 80%;
+      font-size: 16px;
+    }
+    #loginSection button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    input {
+      padding: 10px;
+      flex: 1;
+      min-width: 250px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #resultCount {
+      color: blue;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #resultsWrapper {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #ffffffa0;
+    }
+    .result {
+      border-bottom: 1px solid #ccc;
+      padding: 10px 0;
+    }
+    .no-data {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginSection">
+    <h2>เข้าสู่ระบบเพื่อค้นหาข้อมูลผู้โชคดี</h2>
+    <input type="text" id="username" placeholder="ชื่อผู้ใช้" /><br>
+    <input type="password" id="password" placeholder="รหัสผ่าน" /><br>
+    <button onclick="login()">เข้าสู่ระบบ</button>
+    <p id="loginError" style="color:red;"></p>
+  </div>
+
+  <div id="mainSection" style="display:none;">
+    <h1>ค้นหาข้อมูลผู้โชคดี</h1>
+    <div id="controls">
+      <input id="search" placeholder="กรอกเลขประจำตัวประชาชน หรือชื่อ-สกุล" />
+      <button onclick="filterData()">ค้นหา</button>
+      <button onclick="resetSearch()">รีเซ็ต</button>
+    </div>
+    <div id="resultCount"></div>
+    <div id="resultsWrapper"><div id="results"></div></div>
+  </div>
+
+  <script>
+    let allData = [];
+    let userList = [];
+
+    fetch("https://opensheet.elk.sh/1oR3McgNWwwpT8uFKI6KlK8VRxzp10WBZbw8bfiQnw5o/Sheet4")
+      .then(res => res.json())
+      .then(data => {
+        userList = data;
+      })
+      .catch(err => {
+        document.getElementById("loginError").innerText = "ไม่สามารถโหลดข้อมูลผู้ใช้ได้";
+        console.error(err);
+      });
+
+    function login() {
+      const user = document.getElementById("username").value.trim();
+      const pass = document.getElementById("password").value.trim();
+
+      const match = userList.find(u =>
+        u.user?.trim() === user && u.password?.trim() === pass
+      );
+
+      if (match) {
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainSection").style.display = "block";
+      } else {
+        document.getElementById("loginError").innerText = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
+      }
+    }
+
+    fetch("https://opensheet.elk.sh/1oR3McgNWwwpT8uFKI6KlK8VRxzp10WBZbw8bfiQnw5o/Sheet1")
+      .then(res => res.json())
+      .then(data => {
+        allData = data;
+      })
+      .catch(err => {
+        document.getElementById("results").innerText = "เกิดข้อผิดพลาดในการโหลดข้อมูล";
+        console.error(err);
+      });
+
+    function render(data) {
+      const resultsDiv = document.getElementById("results");
+      const countDiv = document.getElementById("resultCount");
+
+      if (data.length === 0) {
+        countDiv.innerHTML = "";
+        resultsDiv.innerHTML = "<p class='no-data'>ไม่พบข้อมูลที่ตรงกับคำค้นหา</p>";
+        return;
+      }
+
+      countDiv.innerHTML = `พบทั้งหมด <b style='color:blue;'>${data.length}</b> รายการ`;
+
+      const html = data.map((row, index) => `
+        <div class="result">
+          <b style="color:red;">ลำดับ ${index + 1}</b> | <b>ชื่อ-สกุล:</b> ${row["ชื่อ-สกุล"] || "-"}<br>
+          <b>เลขประจำตัวประชาชน:</b> ${row["เลขประจำตัวประชาชน"] || "-"}<br>
+          <b>ชื่ออื่นๆ:</b> ${row["ชื่ออื่นๆ"] || "-"}<br>
+          <b>สถานภาพ:</b> ${row["สถานภาพ"] || "-"}<br>
+          <b>บัญชี:</b> ${row["บัญชี"] || "-"}<br>
+          <b>พฤติกรรม:</b> ${row["พฤติกรรม"] || "-"}<br>
+          <b>หมายเหตุ:</b> ${row["หมายเหตุ"] || "-"}<br>
+          <b>พื้นที่/ที่อยู่:</b> ${row["พื้นที่/ที่อยู่"] || "-"}
+        </div>
+      `).join("");
+      resultsDiv.innerHTML = html;
+    }
+
+    function filterData() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      if (q === "") {
+        document.getElementById("resultCount").innerHTML = "";
+        document.getElementById("results").innerHTML = "<p class='no-data'>กรุณากรอกข้อมูลก่อนค้นหา</p>";
+        return;
+      }
+
+      const filtered = allData.filter(row =>
+        (row["เลขประจำตัวประชาชน"] || "").toLowerCase().includes(q) ||
+        (row["ชื่อ-สกุล"] || "").toLowerCase().includes(q)
+      );
+      render(filtered);
+    }
+
+    function resetSearch() {
+      document.getElementById("search").value = "";
+      document.getElementById("resultCount").innerHTML = "";
+      document.getElementById("results").innerHTML = "";
+    }
+
+    document.getElementById("search").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        filterData();
+      }
+    });
+  </script>
+</body>
+</html>
